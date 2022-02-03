@@ -1,0 +1,473 @@
+---
+title: "Foundations for statistical inference - Sampling distributions"
+output:
+  html_document:
+    
+    highlight: pygments
+    theme: cerulean
+---
+
+**Name: Kinjal Indravadanbhai Bhatt** |
+**Student Number: 0773192** |
+**Class: 001, DAB 502 Lab 2**
+
+
+```{r global_options, include=FALSE}
+
+```
+
+In this lab, we investigate the ways in which the statistics from a random 
+sample of data can serve as point estimates for population parameters. We're 
+interested in formulating a *sampling distribution* of our estimate in order 
+to learn about the properties of the estimate, such as its distribution.
+
+<div id="boxedtext">
+**Setting a seed:** We will take some random samples and build sampling distributions
+in this lab, which means you should set a seed at the beginning of your lab. 
+</div>
+
+```{r}
+set.seed(1234)
+```
+
+
+## Getting Started
+
+### Load packages
+
+In this lab we will explore the data using the dplyr package and visualize it 
+using the ggplot2 package for data visualization. 
+
+Let's load the packages.
+
+```{r load-packages, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+```
+
+### The data
+
+We consider real estate data from the city of Ames, Iowa. The details of 
+every real estate transaction in Ames is recorded by the City Assessor's 
+office. Our particular focus for this lab will be all residential home sales 
+in Ames between 2006 and 2010.  This collection represents our population of 
+interest. In this lab we would like to learn about these home sales by taking 
+smaller samples from the full population. 
+
+Let's load the data. First download the `ames.csv` file, save it in your 
+*data* folder, and then read it into
+RStudio. 
+
+```{r load-data}
+ames <- read.csv("ames.csv")
+```
+
+We see that there are quite a few variables in the data set, enough to do a 
+very in-depth analysis. For this lab, we'll restrict our attention to just 
+two of the variables: the above ground living area of the house in square feet 
+(`area`) and the sale price (`price`).
+
+We can explore the distribution of areas of homes in the population of home
+sales visually and with summary statistics. Let's first create a visualization. 
+
+### Exercise 1. Create a histogram of the `areas` variable (set `binwidth = 250`).
+
+```{r}
+area <- ames$area
+```
+
+```{r}
+ggplot(ames) +
+         ggtitle("Living area of homes in Ames in square feet)") +
+         geom_histogram(aes(x = area), binwidth = 250)
+```
+
+Let's also obtain some summary statistics. Note that we can do this using the
+`summarize` function. We can calculate as many statistics as we want using this
+function, and just combine the results. Some of the functions below should
+be familiar (like `mean`, `median`, `sd`, `IQR`, `min`, and `max`). A
+new function here is the `quantile` function which we can use to calculate 
+values corresponding to specific percentile cutoffs in the distribution. For
+example `quantile(x, 0.25)` will yield the cutoff value for the 25th percentile (Q1)
+in the distribution of `x`. Finding these values is useful for describing the 
+distribution, as we can use them for descriptions like *"the middle 50% of the 
+homes have areas between such and such square feet"*.
+
+```{r area-stats, eval=FALSE}
+ames %>%
+  summarize(mean = mean(area), pop_median = median(area), 
+            sigma = sd(area), pop_iqr = IQR(area),
+            pop_min = min(area), pop_max = max(area),
+            pop_q1 = quantile(area, 0.25),  # first quartile, 25th percentile
+            pop_q3 = quantile(area, 0.75))  # third quartile, 75th percentile
+```
+
+### Exercise 2.  Describe this **population** distribution based on the visualization above and these summary statistics. You don't have to use all of the summary statistics in your description, you will need to decide which ones are relevant based on the shape of the distribution.
+    
+
+
+```{r}
+ggplot(ames, aes(area)) +
+         geom_blank() +
+         geom_histogram(aes(y = ..density..), alpha = 0.35, fill = "violet", binwidth = 300) +
+         stat_function(fun = dnorm, args = c(mean = mean(ames$area), sd = sd(ames$area)), colour = "black")
+```
+
+**Description: As per the above graph, we can clearly see that this is right skwed. Here, most of the living areas are small. 50% of the house are are less than 2000 square feet. There are some houses have more than 4000 square feet.**
+
+
+## The unknown sampling distribution
+
+In this lab we have access to the entire population, but this is rarely the 
+case in real life. Gathering information on an entire population is often 
+extremely costly or impossible. Because of this, we often take a **sample** of 
+the population and use that sample to understand the properties of, or to infer 
+something about, the population.
+
+If we were interested in estimating the mean living area of houses in Ames 
+based on a sample, we can use the `sample_n` command to survey the population.
+
+### Exercise 3.  Use `sample_n` to select a random sample of 50 houses from our data frame. Store the results in a new variable called `samp1`.
+   
+```{r}
+samp1 <- ames %>%
+  sample_n(size = 50)
+```
+
+This is like going into the City Assessor's database and pulling up the files 
+on 50 random home sales. Working with these 50 files would be considerably 
+simpler than working with all 2930 home sales.
+
+
+### Exercise 4.  Describe the distribution of area in this sample. How does it compare to the distribution of the population? **Hint:** the `sample_n` function takes a random sample of observations (i.e. rows) from the dataset, you can still refer to the variables in the dataset with the same names. Code you used in the previous exercise will also be helpful for visualizing and summarizing the sample,however be careful to not label values `mu` and `sigma` anymore since these are **sample statistics**, NOT population parameters. You can change the labels of any of the statistics to indicate that these come from the sample.
+    
+```{r}
+samp1 %>% 
+  ggplot(aes(area))+
+  geom_histogram(aes(y = ..density..), alpha = 0.25,  binwidth = 250, fill = "Blue")+
+  geom_density()+
+  theme_replace()+
+  labs(
+    title = "Distribution of Area of sample 1 (sample=50)",
+    x = "Area of House"
+  )
+```
+
+If we're interested in estimating the average living area in homes in Ames 
+using the sample, our best single guess is the sample mean.
+
+
+```{r}
+samp1 %>%
+  summarise(mean = mean(area), pop_med = median(area), 
+            sd = sd(area), pop_iqr = IQR(area),
+            pop_min = min(area), pop_max = max(area),
+            pop_q1 = quantile(area, 0.25),  # first quartile, 25th percentile
+            pop_q3 = quantile(area, 0.75))  # third quartile, 75th percentile
+```
+
+- Depending on the 50 homes selected, our estimate could be a bit above or a bit below the whole population. 
+- The distribution is Right skewed distribution for sample of 50, but little less compared to whole ames population.
+- Here, 50% of the houses have less than 1472.0 sq.feet. which is more than the whole population.
+- In whole population, some houses having more than 4500 square feet area whereas in 50 sample size having big area size larger than 2400 sq.feet.
+- First quartile and Third quartile does not have big difference. But there was major difference between larger houses.
+
+
+
+### Exercise 5. Calculate the mean area of the homes in this sample of 50. 
+```{r}
+samp1 %>%
+  summarise(mean_samp1 = mean(area))
+```
+
+
+### Exercise 6. Calculate the mean area of all the homes in our population.
+
+```{r}
+ames %>%
+  summarize(mean_ames = mean(area)
+  )
+```
+
+
+Depending on which 50 homes you selected, your estimate could be a bit above 
+or a bit below the true population mean. In general, though, the sample mean turns out to be a pretty good estimate 
+of the average living area, and we were able to get it by sampling less than 3\% 
+of the population.
+
+### Exercise 7.  Would you expect the mean of your sample to match the mean of another classmate's sample? Why, or why not? If the answer is no, would you expect the means to just be somewhat different or very different? Confirm your answer by comparing with a classmate.
+    
+- I guess the mean of my sample would not match with any other classmate's sample. Because there are 2930 objects. and random sample are selecting so there might be the chance that they are having different mean but the difference between our mean was not that high.
+
+### Exercise 8.  Take a second sample, also of size 50, and call it `samp2`. How does the mean of `samp2` compare with the mean of `samp1`? 
+
+create samp2 of size '50':
+
+```{r}
+samp2 <- ames %>%
+  sample_n(size = 50)
+```
+
+Mean value of 'samp2':
+
+```{r}
+samp2 %>%
+  summarise(samp2_mean = mean(area))
+```
+
+By creating new sample of 50 and counting mean, I found that there is not big difference between both the samples, they are having quite little difference.
+    
+### Exercise 9. Suppose we took two more samples, one of size 100 and one of size 1000. Which would you think would provide a more accurate estimate of the population mean? Check your answer by taking the two samples and calculating the mean of each. 
+
+Not surprisingly, every time we take another random sample, we get a different 
+sample mean. It's useful to get a sense of just how much variability we 
+should expect when estimating the population mean this way. The distribution 
+of sample means, called the *sampling distribution (of the mean)*, can help us understand 
+this variability. In this lab, because we have access to the population, we 
+can build up the sampling distribution for the sample mean by repeating the 
+above steps many times. Here we will generate 15,000 samples and compute the 
+sample mean of each. 
+
+Note that we specify that `replace = TRUE` since sampling distributions are 
+constructed by sampling with replacement.
+
+```{r loop}
+sample_means50 <- tibble(sample_means = 
+                           replicate(15000, 
+                                     mean(sample(ames$area, 50,replace = TRUE))))  
+```
+
+### Exercise 10. Create a histogram of the results stored in `sample_means50`.
+
+Here we use R to take 15,000 different samples (the `replicate(15000, ..)` part) 
+of size 50 (the `sample(..., 50, ...)` part) from the population, calculate 
+the mean of each sample (the `mean(...)` part), and store each result in a data frame
+called `sample_means50`. 
+
+```{r}
+samp_100 = sample_n(ames, 100)
+
+samp_1000 = sample_n(ames,1000)
+
+samp_100 %>%
+  summarize(samp_100_mu = mean(area)
+  )
+
+```
+
+```{r}
+samp_1000 %>%
+  summarize(samp_1000 = mean(area)
+  )
+```
+- Sample size of 1000 have more accurate estimation of the population mean.
+
+```{r}
+sample_means50 %>% 
+  ggplot(aes(sample_means))+
+  geom_histogram(aes(y = ..density..), alpha = 0.25,  binwidth = 250, fill = "red")+
+  geom_density()+
+  theme_replace()+
+  labs(
+    title = "Distribution of Area for sample 50",
+    x = "Area of House"
+  )
+```
+
+```{r}
+sample_means50 %>%
+  summary(sample_means50)
+```
+
+
+### Exercise 11.  How many elements are there in `sample_means50`?  Describe the sampling distribution, and be sure to specifically note its center. 
+
+
+- There is only one element 'sample_means', which contains the mean of the 50 random samples.
+- This sample is having almost normal distribution. 
+- Mean 1500 which is very close to its median 1498. So we can say that it is almost normal distribution.
+
+
+## Interlude: Sampling distributions
+
+The idea behind the code above is *repetition*. Earlier we took
+a single sample of size `n = 50` from the population of all houses in Ames. With
+the code above we are able to repeat this sampling procedure as many times 
+as we'd like in order to build a distribution of a series of sample means, 
+which is called the **sampling distribution**. 
+
+> Note that in practice one rarely gets to build true sampling distributions, 
+because we rarely have access to data from the entire population. 
+
+Note that for each of the 15,000 times we computed a mean, we did so from a 
+**different** sample!
+
+### Exercise 12.  To make sure you understand how sampling distributions are built, try modifying the code to create a sampling distribution of **25 sample means** from **samples of size 10**, and put them in a data frame named `sample_means_small`. Plot the results. How many observations are there in this object called `sample_means_small`? What does each observation represent?
+    
+```{r}
+sample_means_small <- rep(0, 25)
+
+for(i in 1:25){
+   samp <- sample(area, 10)
+   sample_means_small[i] <- mean(samp)
+}
+```
+
+```{r}
+hist(sample_means_small)
+```
+- There are 25 elements in 'sample_means_small' variable. Which represent mean area size of the randomly selected 10 houses.
+
+## Sample size and the sampling distribution
+
+The sampling distribution that we computed tells us much about estimating 
+the average living area in homes in Ames.  The sampling distribution is 
+centered at the true average living area of the population, and the spread 
+of the distribution indicates how much variability is incurred by sampling 
+only 50 home sales.
+
+In the remainder of this section we will work on getting a sense of the effect that 
+sample size has on our sampling distribution.
+
+### Exercise 13.  Use the code below to create sampling distributions of means of `area`s from samples of size 10, 50, and 100. Use 5,000 simulations. What does each observation in the sampling distribution represent? How does the mean, standard error (i.e. the standard deviation of the sampling distribution), and shape of the sampling distribution change as the sample size increases? For a sample size of 30, does the shape of the distribution change if you increase the number of simulations from 50 to 1050 in steps of 250? 
+
+
+
+```{r}
+sample_means_10 <- tibble(sample_means = 
+                           replicate(5000, 
+                                     mean(sample(ames$area, 10,replace = TRUE)))) 
+
+```
+```{r}
+summary(sample_means_10)
+```
+- It represent the mean of 10 random house: 1500
+
+```{r}
+sample_means50 <- tibble(sample_means = 
+                           replicate(5000, 
+                                     mean(sample(ames$area, 50,replace = TRUE)))) 
+```
+
+```{r}
+summary(sample_means50)
+```
+- It represent the mean of 50 random house: 1498
+
+```{r}
+sample_means100 <- tibble(sample_means = 
+                           replicate(5000, 
+                                     mean(sample(ames$area, 100,replace = TRUE)))) 
+```
+
+```{r}
+summary(sample_means100)
+```
+- It represent the mean of 100 random house: 1499
+
+```{r}
+sample_means30 <- tibble(sample_means = 
+                           replicate(250, 
+                                     mean(sample(ames$area, 30,replace = TRUE)))) 
+```
+
+```{r}
+summary(sample_means30)
+```
+
+**Increasing sample size.**
+While we increase the size of the sample, the mean value gets closer to the population mean value.
+The shape of the sampling distribution get less spread as the size increases.
+
+**Sample size 30.**
+As we increase simulation from 50 to 1050 with the step size 250 as the simulation increases, the sampling distribution is more normally distributed .
+
+* * *
+
+## More Practice
+
+So far, we have only focused on estimating the mean living area in homes in 
+Ames. Now you'll try to estimate the mean home price.
+
+### Exercise 14.  Take a sample of size 15 from the population and calculate the mean `price` of the homes in this sample. Using this sample, what is your best point estimate of the population mean of prices of homes?
+
+```{r}
+price <- ames$price
+```
+    
+```{r}
+samp1_price <- sample(price, size = 15)
+samp1_price_mean <- mean(samp1_price)
+samp1_price_mean
+```
+- Here I can say that the best estimation of the population mean of the price of homes is 186953.3
+
+
+### Exercise 15.  Since you have access to the population, simulate the sampling distribution of $\overline{price}$ for samples of size 15 by taking 2000 samples from the population of size 15 and computing 2000 sample means. Store these means in a vector called `sample_means15`. Plot the data, then describe the shape of this sampling distribution. Based on this sampling distribution, what would you guess the mean home price of the population to be? Finally, calculate and report the population mean.
+    
+```{r}
+sample_means15 <- tibble(sample_means = 
+                           replicate(2000, 
+                                     mean(sample(ames$price, 15,replace = TRUE))))
+```
+
+**Plot the Data**
+
+```{r}
+sample_means15 %>% 
+  ggplot(aes(sample_means))+
+  geom_histogram(aes(y = ..density..), alpha = 0.25,  binwidth = 250, fill = "green")+
+  geom_density()+
+  theme_replace()+
+  labs(
+    title = "Distribution of Area",
+    x = " Area "
+  )
+```
+
+
+*Description: The sampling distribution of the 'sample_means15' is having almost normal distribution.*
+
+```{r}
+price_summary_sample_means15 <- summary(sample_means15)
+price_summary_sample_means15
+```
+
+- We can say that the mean price of the population must be near to 180779 dollars.
+
+
+### Exercise 16.  Change your sample size from 15 to 150, then compute the sampling distribution using the same method as above, and store these means in a new vector called `sample_means150`. Describe the shape of this sampling distribution, and compare it to the sampling distribution for a sample size of 15. Based on this sampling distribution, what would you guess to be the mean sale price of homes in Ames?
+    
+```{r}
+sample_means150 <- rep(NA, 2000)
+
+for(i in 1:2000){
+   samp <- sample(price, size = 150)
+   sample_means150[i] <- mean(samp)
+   }
+```
+
+**Plot the Data**
+
+```{r}
+hist(sample_means150)
+```
+**Description: If we compared 'sample_mean15' and 'sample_mean150' then both have almost similar distribution that is normal distribution.**
+
+```{r}
+price_summary_sample_means150 <- summary(sample_means150)
+price_summary_sample_means150
+```
+- We can guess that the mean price of the population approximate to 180860 dollars."**
+
+### Exercise 17.  Of the two sampling distributions calculated for `price`, which has a smaller spread?  If we're concerned with making estimates that are more often close to the true value, would we prefer a sampling distribution with a large or small spread?
+
+- Sample_mean150 is having less spread as compare to the sample_mean15 and it gives the closest estimation of the population mean.
+- So I guess we should prefer a sample of small spread.
+
+<div id="license">
+This is modified version of a product of OpenIntro that is released under a [Creative Commons 
+Attribution-ShareAlike 3.0 Unported](http://creativecommons.org/licenses/by-sa/3.0).
+This lab was written for OpenIntro by Andrew Bray and Mine &Ccedil;etinkaya-Rundel.
+</div>
